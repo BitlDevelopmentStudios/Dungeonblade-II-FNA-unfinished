@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 using System.Threading.Tasks;
+using Microsoft.Xna.Framework.Graphics;
 
 public class DB2Main : IObject
 {
@@ -46,6 +47,7 @@ public class DB2Main : IObject
     };
 
     private static string gameFilePath = "DB2";
+    private static string nullTexturePath = gameFilePath + "/Textures/null.png";
 
     public class BaseGameObject
     {
@@ -61,7 +63,7 @@ public class DB2Main : IObject
 
     public class GraphicalGameObject : BaseGameObject
     {
-        public static string TexturePath = gameFilePath + "/Textures/null.png";
+        public static string TexturePath = nullTexturePath;
 
         public GraphicalGameObject(string n, string d, string p) : base(n, d)
         { 
@@ -115,6 +117,7 @@ public class DB2Main : IObject
     private SpriteBatch batch;
 	private Texture2D textureLayer1;
     private Texture2D textureLayer2;
+    private bool needSecondTextureLayer = false; 
 
 	public DB2Main() {}
 
@@ -153,12 +156,17 @@ public class DB2Main : IObject
     #region FNA Events
 	public override void LoadContent(GrobEngineMain game)
     {
-        //textureLoader.LoadContent(game);
+        batch = new SpriteBatch(game.GraphicsDevice);
+        ChangeMainTexture(game, nullTexturePath);
+        ChangeSecondaryTexture(game, nullTexturePath);
+        needSecondTextureLayer = false;
     }
 
     public override void UnloadContent(GrobEngineMain game)
     {
-        //textureLoader.UnloadContent(game);
+        batch.Dispose();
+		textureLayer1.Dispose();
+        textureLayer2.Dispose();
     }
 	
 	public override void Update(GrobEngineMain game, GameTime gameTime)
@@ -194,14 +202,32 @@ public class DB2Main : IObject
             default:
             break;
         }
+
+        if (menuState != MenuState.Game)
+        {
+            ChangeMainTexture(game, gameFilePath + "/Textures/hint.png");
+        }
     }
 
     public override void Draw(GrobEngineMain game, GameTime gameTime)
     {
+        game.GraphicsDevice.Clear(Color.Black);
+
         if (menuState == MenuState.Game)
         {
-            game.GraphicsDevice.Clear(Color.Black);
-            //textureLoader.Draw(game, gameTime);
+            // we will set textures based on the location and enemy here.
+        }
+
+        batch.Begin();
+		batch.Draw(textureLayer1, Vector2.Zero, Color.White);
+        if (needSecondTextureLayer)
+        {
+            batch.Draw(textureLayer2, Vector2.Zero, Color.White);
+        }
+		batch.End();
+
+        if (menuState == MenuState.Game)
+        {
             Game(game);
             if (string.IsNullOrWhiteSpace(GameDecision))
             {
@@ -267,6 +293,17 @@ public class DB2Main : IObject
     public string ReadTags(string input)
     {
         return input.Replace("%name%", PlayerName);
+    }
+
+    public void ChangeMainTexture(GrobEngineMain game, string path)
+    {
+        textureLayer1 = game.Content.Load<Texture2D>(path);
+    }
+
+    public void ChangeSecondaryTexture(GrobEngineMain game, string path)
+    {
+        needSecondTextureLayer = true;
+        textureLayer2 = game.Content.Load<Texture2D>(path);
     }
     #endregion
 
