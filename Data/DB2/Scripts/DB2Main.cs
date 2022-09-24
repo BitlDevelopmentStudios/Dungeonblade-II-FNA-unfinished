@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Content;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
+using System.Threading.Tasks;
 
 public class DB2Main : IObject
 {
@@ -14,13 +15,21 @@ public class DB2Main : IObject
         public string LanguageShortName;
     }
 
-    public enum State
+    public enum MenuState
     {
         Language,
         Difficulty,
         Name,
         Story,
         Game
+    }
+
+    public enum PlayerState
+    {
+        Walking,
+        Combat,
+        Death,
+        Ending
     }
 
     private Dictionary<string, string> AvailableLanguages = new Dictionary<string, string>()
@@ -36,31 +45,109 @@ public class DB2Main : IObject
         {"Knightmare", "k"}
     };
 
+    private static string gameFilePath = "DB2";
+
+    public class BaseGameObject
+    {
+        public static string Name = "null";
+        public static string Desc = "null";
+
+        public BaseGameObject(string n, string d) 
+        { 
+            Name = n;
+            Desc = d;
+        }
+    }
+
+    public class GraphicalGameObject : BaseGameObject
+    {
+        public static string TexturePath = gameFilePath + "/Textures/null.png";
+
+        public GraphicalGameObject(string n, string d, string p) : base(n, d)
+        { 
+            TexturePath = p;
+        }
+    }
+
+    public class Enemy : GraphicalGameObject
+    {
+        public static int Health = 100;
+        public static int ChanceToSpawn = 100;
+        public static bool IsBoss = false;
+
+        public Enemy(string n, string d, string p, int h, int c) : base(n, d, p)
+        { 
+            Health = h;
+            ChanceToSpawn = c;
+        }
+
+        public Enemy(string n, string d, string p, int h, int c, bool b) : base(n, d, p)
+        { 
+            Health = h;
+            ChanceToSpawn = c;
+            IsBoss = b;
+        }
+    }
+
+    /*private List<Enemy> EnemyList = new List<Enemy>()
+    {
+        new Enemy();
+    };*/
+
+    public class Item : BaseGameObject
+    {
+        protected int Damage;
+
+        public Item(string n, string d, int dam) : base(n, d)
+        { 
+            Damage = dam;
+        }
+    }
+
     private Language SelectedLanguage;
     private string SelectedDifficulty;
     private string configFile = "config.ini";
-    private string gameFilePath = "DB2";
     private string title;
     private string PlayerName;
-    private State gameState;
+    private MenuState menuState;
+    private PlayerState playerState;
+    private string GameDecision;
+    private SpriteBatch batch;
+	private Texture2D textureLayer1;
+    private Texture2D textureLayer2;
 
 	public DB2Main() {}
 
 	public override void Initialize(GrobEngineMain game)
     {
+        GameDecision = "";
         SelectedLanguage = new Language();
         //Set to English by default.
         ResetLanguage();
-        gameState = State.Language;
-
-        //set title then go to language select.
+        menuState = MenuState.Language;
         SetGameTitle(game);
     }
 
     public void Game(GrobEngineMain game)
     {
-        ConsoleText("game here", true);
-        string decision = Console.ReadLine();
+        ConsoleText("test", true);
+        GameDecision = Console.ReadLine();
+
+        switch(playerState)
+        {
+            case PlayerState.Walking:
+            break;
+            case PlayerState.Combat:
+            break;
+            case PlayerState.Death:
+            break;
+            case PlayerState.Ending:
+            break;
+            default:
+            break;
+        }
+
+        GameDecision = "";
     }
 
     #region FNA Events
@@ -76,11 +163,9 @@ public class DB2Main : IObject
 	
 	public override void Update(GrobEngineMain game, GameTime gameTime)
     {
-		//inputTest.Update(game, gameTime);
-
-        switch(gameState)
+        switch(menuState)
         {
-            case State.Language:
+            case MenuState.Language:
                 {
                     if (!Storage.DoesConfigFileExist(configFile) || String.IsNullOrWhiteSpace(Storage.ConfigINI(configFile, "Settings", "Language")))
                     {
@@ -89,22 +174,22 @@ public class DB2Main : IObject
 
                     LoadLanguage();
                     SetGameTitle(game);
-                    gameState = State.Difficulty;
+                    menuState = MenuState.Difficulty;
                 }
             break;
-            case State.Difficulty:
+            case MenuState.Difficulty:
                 DifficultySelect(game);
             break;
-            case State.Name:
+            case MenuState.Name:
                 ConsoleText(LoadTextFromContent(gameFilePath + "/Resource/" + SelectedLanguage.LanguageShortName + "/namequestion_" + SelectedLanguage.LanguageShortName + ".txt", game.Content));
                 PlayerName = Console.ReadLine();
-                gameState = State.Story;
+                menuState = MenuState.Story;
             break;
-            case State.Story:
+            case MenuState.Story:
                 string fixedStory = ReadTags(LoadTextFromContent(gameFilePath + "/Resource/" + SelectedLanguage.LanguageShortName + "/story_" + SelectedLanguage.LanguageShortName + ".txt", game.Content));
                 ConsoleText(fixedStory, true);
                 Console.ReadKey();
-                gameState = State.Game;
+                menuState = MenuState.Game;
             break;
             default:
             break;
@@ -113,11 +198,15 @@ public class DB2Main : IObject
 
     public override void Draw(GrobEngineMain game, GameTime gameTime)
     {
-        if (gameState == State.Game)
+        if (menuState == MenuState.Game)
         {
             game.GraphicsDevice.Clear(Color.Black);
             //textureLoader.Draw(game, gameTime);
             Game(game);
+            if (string.IsNullOrWhiteSpace(GameDecision))
+            {
+                game.SuppressDraw();
+            }
         }
     }
     #endregion
@@ -225,7 +314,7 @@ public class DB2Main : IObject
             string decision = Console.ReadLine();
             if (decision.Equals("y"))
             {
-                gameState = State.Name;
+                menuState = MenuState.Name;
             }
             else if (decision.Equals("n"))
             {
