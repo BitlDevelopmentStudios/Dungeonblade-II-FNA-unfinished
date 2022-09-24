@@ -1,0 +1,2 @@
+# DUNGEONBLADE II (working title)
+A text adventure built with GrobEngine, a in-house, open source, FNA powered framework. This framework is built specifically with the focus of giving modders full access to the game's code. The engine is included here as a git submodule.
