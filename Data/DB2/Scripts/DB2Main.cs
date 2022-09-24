@@ -107,15 +107,18 @@ public class DB2Main : IObject
                 gameState = State.Game;
             break;
             default:
-                Game(game);
             break;
         }
     }
 
     public override void Draw(GrobEngineMain game, GameTime gameTime)
     {
-        game.GraphicsDevice.Clear(Color.Black);
-        //textureLoader.Draw(game, gameTime);
+        if (gameState == State.Game)
+        {
+            game.GraphicsDevice.Clear(Color.Black);
+            //textureLoader.Draw(game, gameTime);
+            Game(game);
+        }
     }
     #endregion
 
