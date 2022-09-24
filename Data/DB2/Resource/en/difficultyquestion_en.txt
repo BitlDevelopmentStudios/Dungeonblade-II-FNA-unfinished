@@ -1,0 +1,2 @@
+DIFFICULTY
+What difficulty would you like to choose?
