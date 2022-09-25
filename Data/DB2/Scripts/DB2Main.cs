@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Content;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -33,6 +34,20 @@ public class DB2Main : IObject
         Ending
     }
 
+    public enum PlayerDir
+    {
+        Forward,
+        Left,
+        Right
+    }
+
+    public enum PlayerCombat
+    {
+        Attack,
+        Dodge,
+        Block
+    }
+
     private Dictionary<string, string> AvailableLanguages = new Dictionary<string, string>()
     {
         {"English", "en"}
@@ -51,8 +66,8 @@ public class DB2Main : IObject
 
     public class BaseGameObject
     {
-        public static string Name = "null";
-        public static string Desc = "null";
+        public string Name = "null";
+        public string Desc = "null";
 
         public BaseGameObject(string n, string d) 
         { 
@@ -63,7 +78,7 @@ public class DB2Main : IObject
 
     public class GraphicalGameObject : BaseGameObject
     {
-        public static string TexturePath = nullTexturePath;
+        public string TexturePath = nullTexturePath;
 
         public GraphicalGameObject(string n, string d, string p) : base(n, d)
         { 
@@ -73,9 +88,9 @@ public class DB2Main : IObject
 
     public class Enemy : GraphicalGameObject
     {
-        public static int Health = 100;
-        public static int ChanceToSpawn = 100;
-        public static bool IsBoss = false;
+        public int Health = 100;
+        public int ChanceToSpawn = 100;
+        public bool IsBoss = false;
 
         public Enemy(string n, string d, string p, int h, int c) : base(n, d, p)
         { 
@@ -98,7 +113,7 @@ public class DB2Main : IObject
 
     public class Item : BaseGameObject
     {
-        protected int Damage;
+        public int Damage;
 
         public Item(string n, string d, int dam) : base(n, d)
         { 
@@ -106,23 +121,41 @@ public class DB2Main : IObject
         }
     }
 
+    public class BaseGamePlayer
+    {
+        public string Name;
+        public int Health;
+        public int MaxHealth;
+        public PlayerState State;
+        public PlayerDir Direction;
+        public PlayerCombat Combat;
+
+        public BaseGamePlayer(string n, int h)
+        { 
+            Name = n;
+            Health = h;
+            MaxHealth = Health;
+        }
+    }
+
     private Language SelectedLanguage;
     private string SelectedDifficulty;
     private string configFile = "config.ini";
     private string title;
-    private string PlayerName;
     private MenuState menuState;
-    private PlayerState playerState;
     private string GameDecision;
     private SpriteBatch batch;
 	private Texture2D textureLayer1;
     private Texture2D textureLayer2;
     private bool needSecondTextureLayer = false; 
+    private bool textureBootup;
+    public static BaseGamePlayer Player;
 
 	public DB2Main() {}
 
 	public override void Initialize(GrobEngineMain game)
     {
+        Player = new BaseGamePlayer("Player", 100);
         GameDecision = "";
         SelectedLanguage = new Language();
         //Set to English by default.
@@ -133,24 +166,61 @@ public class DB2Main : IObject
 
     public void Game(GrobEngineMain game)
     {
-        ConsoleText("test", true);
-        GameDecision = Console.ReadLine();
+        GameDecision = "";
 
-        switch(playerState)
+        // we will set textures based on the location and enemy here.
+        switch(Player.Direction)
         {
-            case PlayerState.Walking:
+            case PlayerDir.Forward:
+                ChangeMainTexture(game, gameFilePath + "/Textures/forward.png");
             break;
-            case PlayerState.Combat:
+            case PlayerDir.Left:
+                ChangeMainTexture(game, gameFilePath + "/Textures/left_corner.png");
             break;
-            case PlayerState.Death:
-            break;
-            case PlayerState.Ending:
+            case PlayerDir.Right:
+                ChangeMainTexture(game, gameFilePath + "/Textures/right_corner.png");
             break;
             default:
             break;
         }
 
-        GameDecision = "";
+        if (!textureBootup)
+        {
+            switch(Player.State)
+            {
+                case PlayerState.Walking:
+                    PlayerHUDText(LoadTextFromContent(gameFilePath + "/Resource/" + SelectedLanguage.LanguageShortName + "/walkdecision_" + SelectedLanguage.LanguageShortName + ".txt", game.Content));
+                    
+                    GameDecision = Console.ReadLine();
+                    if (GameDecision.Equals("f"))
+                    {
+                        Player.Direction = PlayerDir.Forward;
+                    }
+                    else if (GameDecision.Equals("l"))
+                    {
+                        Player.Direction = PlayerDir.Left;
+                    }
+                    else if (GameDecision.Equals("r"))
+                    {
+                        Player.Direction = PlayerDir.Right;
+                    }
+
+                    textureBootup = true;
+                break;
+                case PlayerState.Combat:
+                break;
+                case PlayerState.Death:
+                break;
+                case PlayerState.Ending:
+                break;
+                default:
+                break;
+            }
+        }
+        else
+        {
+            textureBootup = false;
+        }
     }
 
     #region FNA Events
@@ -190,22 +260,19 @@ public class DB2Main : IObject
             break;
             case MenuState.Name:
                 ConsoleText(LoadTextFromContent(gameFilePath + "/Resource/" + SelectedLanguage.LanguageShortName + "/namequestion_" + SelectedLanguage.LanguageShortName + ".txt", game.Content));
-                PlayerName = Console.ReadLine();
+                Player.Name = Console.ReadLine();
                 menuState = MenuState.Story;
             break;
             case MenuState.Story:
                 string fixedStory = ReadTags(LoadTextFromContent(gameFilePath + "/Resource/" + SelectedLanguage.LanguageShortName + "/story_" + SelectedLanguage.LanguageShortName + ".txt", game.Content));
                 ConsoleText(fixedStory, true);
                 Console.ReadKey();
+                Player.Direction = PlayerDir.Right;
                 menuState = MenuState.Game;
+                textureBootup = true;
             break;
             default:
             break;
-        }
-
-        if (menuState != MenuState.Game)
-        {
-            ChangeMainTexture(game, gameFilePath + "/Textures/hint.png");
         }
     }
 
@@ -215,7 +282,11 @@ public class DB2Main : IObject
 
         if (menuState == MenuState.Game)
         {
-            // we will set textures based on the location and enemy here.
+            Game(game);
+        }
+        else
+        {
+            ChangeMainTexture(game, gameFilePath + "/Textures/hint.png");
         }
 
         batch.Begin();
@@ -225,15 +296,6 @@ public class DB2Main : IObject
             batch.Draw(textureLayer2, Vector2.Zero, Color.White);
         }
 		batch.End();
-
-        if (menuState == MenuState.Game)
-        {
-            Game(game);
-            if (string.IsNullOrWhiteSpace(GameDecision))
-            {
-                game.SuppressDraw();
-            }
-        }
     }
     #endregion
 
@@ -292,7 +354,7 @@ public class DB2Main : IObject
 
     public string ReadTags(string input)
     {
-        return input.Replace("%name%", PlayerName);
+        return input.Replace("%name%", Player.Name);
     }
 
     public void ChangeMainTexture(GrobEngineMain game, string path)
@@ -388,6 +450,18 @@ public class DB2Main : IObject
             string diffKey = AvailableDifficulties.FirstOrDefault(x => x.Value == SelectedDifficulty).Key;
             Console.WriteLine(diffKey);
         }
+        Console.WriteLine(text);
+    }
+
+    public void PlayerHUDText(string text = "")
+    {
+        Console.Clear();
+        Console.WriteLine("----");
+        Console.WriteLine(Player.Name);
+        Console.WriteLine(Player.Health + "/" + Player.MaxHealth);
+        Console.WriteLine(Player.State.ToString());
+        Console.WriteLine("----");
+        Console.WriteLine();
         Console.WriteLine(text);
     }
     #endregion
